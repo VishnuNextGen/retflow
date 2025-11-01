@@ -1,28 +1,10 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import '../styles/VideoCanvas.css';
 
 const VideoCanvas = ({ videoRef, isPlaying, sensitivity, showMask, layering }) => {
-  const pitchCanvasRef = useRef(null);
-  const playersCanvasRef = useRef(null);
+  const canvasRef = useRef(null);
+  const offscreenCanvasRef = useRef(null);
   const animationFrameRef = useRef(null);
-  const [supportsWebGPU, setSupportsWebGPU] = useState(false);
-
-  useEffect(() => {
-    // Check for WebGPU support
-    const checkWebGPU = async () => {
-      if ('gpu' in navigator) {
-        try {
-          const adapter = await navigator.gpu.requestAdapter();
-          if (adapter) {
-            setSupportsWebGPU(true);
-          }
-        } catch (e) {
-          setSupportsWebGPU(false);
-        }
-      }
-    };
-    checkWebGPU();
-  }, []);
 
   useEffect(() => {
     const pitchCanvas = pitchCanvasRef.current;
