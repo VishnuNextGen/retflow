@@ -57,7 +57,7 @@ const MaskingPanel = ({
           <div className="switch-row">
             <div>
               <label className="control-label">Layering</label>
-              <p className="control-description">Draw above players</p>
+              <p className="control-description">Drawings appear on top of video when enabled</p>
             </div>
             <Switch
               checked={layering}
