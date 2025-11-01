@@ -1,18 +1,8 @@
 .video-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-}
-
-.pitch-layer {
+  position: relative;
   z-index: 1;
-}
-
-.players-layer {
-  z-index: 3;
-  pointer-events: none;
 }
