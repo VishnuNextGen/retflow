@@ -2,18 +2,21 @@ import React, { useRef, useEffect } from 'react';
 import '../styles/VideoCanvas.css';
 
 const VideoCanvas = ({ videoRef, isPlaying, sensitivity, showMask, layering }) => {
-  const canvasRef = useRef(null);
+  const pitchCanvasRef = useRef(null);
+  const playersCanvasRef = useRef(null);
   const offscreenCanvasRef = useRef(null);
   const animationFrameRef = useRef(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
+    const pitchCanvas = pitchCanvasRef.current;
+    const playersCanvas = playersCanvasRef.current;
     const video = videoRef.current;
-    if (!canvas || !video) return;
+    if (!pitchCanvas || !playersCanvas || !video) return;
 
-    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+    const pitchCtx = pitchCanvas.getContext('2d', { alpha: true });
+    const playersCtx = playersCanvas.getContext('2d', { alpha: true });
     
-    // Create offscreen canvas for processing only when needed
+    // Create offscreen canvas for processing
     if (!offscreenCanvasRef.current) {
       offscreenCanvasRef.current = document.createElement('canvas');
     }
@@ -26,25 +29,98 @@ const VideoCanvas = ({ videoRef, isPlaying, sensitivity, showMask, layering }) =
     };
 
     const renderFrame = () => {
-      if (!canvas || !video || video.readyState < 2) return;
+      if (!pitchCanvas || !playersCanvas || !video || video.readyState < 2) return;
 
-      // Set canvas size to match video
-      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      // Set canvas sizes to match video
+      if (pitchCanvas.width !== video.videoWidth || pitchCanvas.height !== video.videoHeight) {
+        pitchCanvas.width = video.videoWidth;
+        pitchCanvas.height = video.videoHeight;
+        playersCanvas.width = video.videoWidth;
+        playersCanvas.height = video.videoHeight;
       }
 
-      // Simply draw video frame
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Only apply mask overlay if showMask is enabled (for sensitivity adjustment)
-      if (showMask) {
-        applyMaskOverlay(ctx, canvas, sensitivity);
+      if (layering) {
+        // Separate layers: pitch bottom, drawings middle, players top
+        separateLayers(pitchCtx, playersCtx, video, pitchCanvas, playersCanvas, sensitivity, showMask);
+      } else {
+        // No layering: draw everything on top layer
+        pitchCtx.clearRect(0, 0, pitchCanvas.width, pitchCanvas.height);
+        playersCtx.drawImage(video, 0, 0, playersCanvas.width, playersCanvas.height);
+        
+        if (showMask) {
+          applyMaskOverlay(playersCtx, playersCanvas, sensitivity);
+        }
       }
     };
 
+    const separateLayers = (pitchCtx, playersCtx, video, pitchCanvas, playersCanvas, sens, showMask) => {
+      const offscreen = offscreenCanvasRef.current;
+      if (offscreen.width !== video.videoWidth || offscreen.height !== video.videoHeight) {
+        offscreen.width = video.videoWidth;
+        offscreen.height = video.videoHeight;
+      }
+      
+      const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+      offCtx.drawImage(video, 0, 0, offscreen.width, offscreen.height);
+      
+      const imageData = offCtx.getImageData(0, 0, offscreen.width, offscreen.height);
+      const data = imageData.data;
+      
+      // Create image data for both layers
+      const pitchData = pitchCtx.createImageData(offscreen.width, offscreen.height);
+      const playersData = playersCtx.createImageData(offscreen.width, offscreen.height);
+      
+      // Separate pixels: green to pitch layer, non-green to players layer
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3];
+        
+        const isGreen = (g > r + sens) && (g > b + sens) && (g > 80);
+        
+        if (isGreen) {
+          // Green pixels go to PITCH layer (bottom)
+          if (showMask) {
+            pitchData.data[i] = Math.min(255, r + 100);
+            pitchData.data[i + 1] = Math.max(0, g - 50);
+            pitchData.data[i + 2] = Math.max(0, b - 50);
+          } else {
+            pitchData.data[i] = r;
+            pitchData.data[i + 1] = g;
+            pitchData.data[i + 2] = b;
+          }
+          pitchData.data[i + 3] = a;
+          
+          // Transparent in players layer
+          playersData.data[i] = 0;
+          playersData.data[i + 1] = 0;
+          playersData.data[i + 2] = 0;
+          playersData.data[i + 3] = 0;
+        } else {
+          // Non-green pixels go to PLAYERS layer (top)
+          playersData.data[i] = r;
+          playersData.data[i + 1] = g;
+          playersData.data[i + 2] = b;
+          playersData.data[i + 3] = a;
+          
+          // Transparent in pitch layer
+          pitchData.data[i] = 0;
+          pitchData.data[i + 1] = 0;
+          pitchData.data[i + 2] = 0;
+          pitchData.data[i + 3] = 0;
+        }
+      }
+      
+      // Render separated layers
+      pitchCtx.clearRect(0, 0, pitchCanvas.width, pitchCanvas.height);
+      pitchCtx.putImageData(pitchData, 0, 0);
+      
+      playersCtx.clearRect(0, 0, playersCanvas.width, playersCanvas.height);
+      playersCtx.putImageData(playersData, 0, 0);
+    };
+
     const applyMaskOverlay = (ctx, canvas, sens) => {
-      // Use offscreen canvas to avoid recreating
       const offscreen = offscreenCanvasRef.current;
       if (offscreen.width !== canvas.width || offscreen.height !== canvas.height) {
         offscreen.width = canvas.width;
@@ -57,7 +133,6 @@ const VideoCanvas = ({ videoRef, isPlaying, sensitivity, showMask, layering }) =
       const imageData = offCtx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      // Apply red tint only to green pixels
       for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
