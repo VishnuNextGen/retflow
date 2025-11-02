@@ -1,4 +1,5 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,9 +7,15 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List
+from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+import aiofiles
+import asyncio
+import subprocess
+import cv2
+import numpy as np
+import json
 
 
 ROOT_DIR = Path(__file__).parent
@@ -19,6 +26,12 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Create uploads directory
+UPLOADS_DIR = ROOT_DIR / 'uploads'
+PROCESSED_DIR = ROOT_DIR / 'processed'
+UPLOADS_DIR.mkdir(exist_ok=True)
+PROCESSED_DIR.mkdir(exist_ok=True)
+
 # Create the main app without a prefix
 app = FastAPI()
 
@@ -27,44 +40,300 @@ api_router = APIRouter(prefix="/api")
 
 
 # Define Models
-class StatusCheck(BaseModel):
-    model_config = ConfigDict(extra="ignore")  # Ignore MongoDB's _id field
+class VideoMetadata(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    client_name: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    filename: str
+    original_size: int
+    upload_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = "uploaded"  # uploaded, processing, completed, error
+    progress: float = 0.0
+    pitch_video_path: Optional[str] = None
+    players_video_path: Optional[str] = None
+    error_message: Optional[str] = None
 
-class StatusCheckCreate(BaseModel):
-    client_name: str
+class ProcessingStatus(BaseModel):
+    status: str
+    progress: float
+    message: str
 
-# Add your routes to the router instead of directly to app
+
+# Video processing function
+async def process_video_layers(video_id: str, input_path: str, sensitivity: int = 34):
+    try:
+        # Update status to processing
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {"status": "processing", "progress": 0.0}}
+        )
+
+        # Output paths
+        pitch_path = str(PROCESSED_DIR / f"{video_id}_pitch.mp4")
+        players_path = str(PROCESSED_DIR / f"{video_id}_players.mp4")
+        
+        # Get video info
+        cap = cv2.VideoCapture(input_path)
+        fps = int(cap.get(cv2.CAP_PROP_FPS))
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
+
+        # Create temporary directory for frames
+        temp_dir = PROCESSED_DIR / f"{video_id}_temp"
+        temp_dir.mkdir(exist_ok=True)
+        pitch_frames_dir = temp_dir / "pitch"
+        players_frames_dir = temp_dir / "players"
+        pitch_frames_dir.mkdir(exist_ok=True)
+        players_frames_dir.mkdir(exist_ok=True)
+
+        # Process frames in batches
+        cap = cv2.VideoCapture(input_path)
+        frame_count = 0
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Separate layers
+            pitch_frame, players_frame = separate_frame_layers(frame, sensitivity)
+            
+            # Save frames
+            cv2.imwrite(str(pitch_frames_dir / f"frame_{frame_count:06d}.png"), pitch_frame)
+            cv2.imwrite(str(players_frames_dir / f"frame_{frame_count:06d}.png"), players_frame)
+            
+            frame_count += 1
+            
+            # Update progress every 30 frames
+            if frame_count % 30 == 0:
+                progress = (frame_count / total_frames) * 50  # First 50% for extraction
+                await db.videos.update_one(
+                    {"id": video_id},
+                    {"$set": {"progress": progress}}
+                )
+        
+        cap.release()
+
+        # Encode videos using FFmpeg
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {"progress": 50.0}}
+        )
+
+        # Encode pitch layer
+        pitch_cmd = [
+            'ffmpeg', '-y', '-r', str(fps),
+            '-i', str(pitch_frames_dir / 'frame_%06d.png'),
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+            '-pix_fmt', 'yuva420p',
+            pitch_path
+        ]
+        subprocess.run(pitch_cmd, check=True, capture_output=True)
+
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {"progress": 75.0}}
+        )
+
+        # Encode players layer
+        players_cmd = [
+            'ffmpeg', '-y', '-r', str(fps),
+            '-i', str(players_frames_dir / 'frame_%06d.png'),
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+            '-pix_fmt', 'yuva420p',
+            players_path
+        ]
+        subprocess.run(players_cmd, check=True, capture_output=True)
+
+        # Clean up temp frames
+        import shutil
+        shutil.rmtree(temp_dir)
+
+        # Update database
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {
+                "status": "completed",
+                "progress": 100.0,
+                "pitch_video_path": pitch_path,
+                "players_video_path": players_path
+            }}
+        )
+
+    except Exception as e:
+        logging.error(f"Error processing video {video_id}: {str(e)}")
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {
+                "status": "error",
+                "error_message": str(e)
+            }}
+        )
+
+
+def separate_frame_layers(frame, sensitivity):
+    """Separate a frame into pitch and players layers"""
+    # Create output frames with alpha channel
+    pitch_frame = np.zeros((frame.shape[0], frame.shape[1], 4), dtype=np.uint8)
+    players_frame = np.zeros((frame.shape[0], frame.shape[1], 4), dtype=np.uint8)
+    
+    # Convert to RGB for processing
+    b, g, r = frame[:, :, 0], frame[:, :, 1], frame[:, :, 2]
+    
+    # Green detection
+    is_green = (g > r + sensitivity) & (g > b + sensitivity) & (g > 80)
+    
+    # Pitch layer: green pixels with full opacity
+    pitch_frame[is_green, 0] = b[is_green]
+    pitch_frame[is_green, 1] = g[is_green]
+    pitch_frame[is_green, 2] = r[is_green]
+    pitch_frame[is_green, 3] = 255
+    
+    # Players layer: non-green pixels with full opacity
+    players_frame[~is_green, 0] = b[~is_green]
+    players_frame[~is_green, 1] = g[~is_green]
+    players_frame[~is_green, 2] = r[~is_green]
+    players_frame[~is_green, 3] = 255
+    
+    return pitch_frame, players_frame
+
+
+# API Routes
+@api_router.post("/videos/upload")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a video file"""
+    try:
+        # Generate unique ID
+        video_id = str(uuid.uuid4())
+        file_ext = Path(file.filename).suffix
+        file_path = UPLOADS_DIR / f"{video_id}{file_ext}"
+        
+        # Save file
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
+        
+        # Get file size
+        file_size = os.path.getsize(file_path)
+        
+        # Save metadata to database
+        video_metadata = VideoMetadata(
+            id=video_id,
+            filename=file.filename,
+            original_size=file_size
+        )
+        
+        await db.videos.insert_one(video_metadata.model_dump())
+        
+        return {
+            "success": True,
+            "video_id": video_id,
+            "filename": file.filename,
+            "size": file_size
+        }
+    
+    except Exception as e:
+        logging.error(f"Error uploading video: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/videos/process/{video_id}")
+async def process_video(video_id: str, background_tasks: BackgroundTasks, sensitivity: int = 34):
+    """Start processing a video"""
+    try:
+        # Check if video exists
+        video = await db.videos.find_one({"id": video_id})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        # Find the uploaded file
+        video_files = list(UPLOADS_DIR.glob(f"{video_id}.*"))
+        if not video_files:
+            raise HTTPException(status_code=404, detail="Video file not found")
+        
+        input_path = str(video_files[0])
+        
+        # Start background processing
+        background_tasks.add_task(process_video_layers, video_id, input_path, sensitivity)
+        
+        return {
+            "success": True,
+            "message": "Processing started",
+            "video_id": video_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error starting video processing: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/videos/status/{video_id}", response_model=ProcessingStatus)
+async def get_video_status(video_id: str):
+    """Get processing status of a video"""
+    try:
+        video = await db.videos.find_one({"id": video_id})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        status_messages = {
+            "uploaded": "Video uploaded, ready to process",
+            "processing": f"Processing video... {video.get('progress', 0):.1f}%",
+            "completed": "Processing completed",
+            "error": video.get('error_message', 'An error occurred')
+        }
+        
+        return ProcessingStatus(
+            status=video['status'],
+            progress=video.get('progress', 0.0),
+            message=status_messages.get(video['status'], 'Unknown status')
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting video status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/videos/stream/{video_id}/{layer}")
+async def stream_video(video_id: str, layer: str):
+    """Stream processed video layer"""
+    try:
+        video = await db.videos.find_one({"id": video_id})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        if video['status'] != 'completed':
+            raise HTTPException(status_code=400, detail="Video processing not completed")
+        
+        # Get the appropriate video path
+        if layer == 'pitch':
+            video_path = video.get('pitch_video_path')
+        elif layer == 'players':
+            video_path = video.get('players_video_path')
+        else:
+            raise HTTPException(status_code=400, detail="Invalid layer. Use 'pitch' or 'players'")
+        
+        if not video_path or not os.path.exists(video_path):
+            raise HTTPException(status_code=404, detail="Video file not found")
+        
+        return FileResponse(video_path, media_type="video/mp4")
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error streaming video: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Tactical Vision API"}
 
-@api_router.post("/status", response_model=StatusCheck)
-async def create_status_check(input: StatusCheckCreate):
-    status_dict = input.model_dump()
-    status_obj = StatusCheck(**status_dict)
-    
-    # Convert to dict and serialize datetime to ISO string for MongoDB
-    doc = status_obj.model_dump()
-    doc['timestamp'] = doc['timestamp'].isoformat()
-    
-    _ = await db.status_checks.insert_one(doc)
-    return status_obj
-
-@api_router.get("/status", response_model=List[StatusCheck])
-async def get_status_checks():
-    # Exclude MongoDB's _id field from the query results
-    status_checks = await db.status_checks.find({}, {"_id": 0}).to_list(1000)
-    
-    # Convert ISO string timestamps back to datetime objects
-    for check in status_checks:
-        if isinstance(check['timestamp'], str):
-            check['timestamp'] = datetime.fromisoformat(check['timestamp'])
-    
-    return status_checks
 
 # Include the router in the main app
 app.include_router(api_router)
