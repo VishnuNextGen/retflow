@@ -174,10 +174,19 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
 
 
 def separate_frame_layers(frame, sensitivity):
-    """Separate a frame into pitch and players layers"""
+    """Separate a frame into pitch (full video) and players (non-green only) layers"""
     # Create output frames with alpha channel
-    pitch_frame = np.zeros((frame.shape[0], frame.shape[1], 4), dtype=np.uint8)
-    players_frame = np.zeros((frame.shape[0], frame.shape[1], 4), dtype=np.uint8)
+    h, w = frame.shape[0], frame.shape[1]
+    
+    # Pitch layer: FULL VIDEO (no transparency)
+    pitch_frame = np.zeros((h, w, 4), dtype=np.uint8)
+    pitch_frame[:, :, 0] = frame[:, :, 0]  # B
+    pitch_frame[:, :, 1] = frame[:, :, 1]  # G
+    pitch_frame[:, :, 2] = frame[:, :, 2]  # R
+    pitch_frame[:, :, 3] = 255  # Full opacity everywhere
+    
+    # Players layer: Only non-green pixels (transparent elsewhere)
+    players_frame = np.zeros((h, w, 4), dtype=np.uint8)
     
     # Convert to RGB for processing
     b, g, r = frame[:, :, 0], frame[:, :, 1], frame[:, :, 2]
@@ -185,17 +194,12 @@ def separate_frame_layers(frame, sensitivity):
     # Green detection
     is_green = (g > r + sensitivity) & (g > b + sensitivity) & (g > 80)
     
-    # Pitch layer: green pixels with full opacity
-    pitch_frame[is_green, 0] = b[is_green]
-    pitch_frame[is_green, 1] = g[is_green]
-    pitch_frame[is_green, 2] = r[is_green]
-    pitch_frame[is_green, 3] = 255
-    
-    # Players layer: non-green pixels with full opacity
+    # Players layer: non-green pixels with full opacity, green areas transparent
     players_frame[~is_green, 0] = b[~is_green]
     players_frame[~is_green, 1] = g[~is_green]
     players_frame[~is_green, 2] = r[~is_green]
-    players_frame[~is_green, 3] = 255
+    players_frame[~is_green, 3] = 255  # Opaque
+    # Green areas stay transparent (alpha = 0)
     
     return pitch_frame, players_frame
 
