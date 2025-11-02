@@ -92,14 +92,14 @@ const TacticalBoard = () => {
   };
 
   const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+    if (pitchVideoRef.current) {
+      setCurrentTime(pitchVideoRef.current.currentTime);
     }
   };
 
   const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
+    if (pitchVideoRef.current) {
+      setDuration(pitchVideoRef.current.duration);
     }
   };
 
