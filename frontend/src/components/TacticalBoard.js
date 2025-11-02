@@ -32,21 +32,17 @@ const TacticalBoard = () => {
   const [drawings, setDrawings] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   
-  const videoRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const pitchVideoRef = useRef(null);
+  const playersVideoRef = useRef(null);
   const canvasContainerRef = useRef(null);
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('video/')) {
-      setIsLoading(true);
-      const url = URL.createObjectURL(file);
-      setVideoFile(file);
-      setVideoUrl(url);
-      setDrawings([]);
-      setHistoryIndex(-1);
-      setTimeout(() => setIsLoading(false), 500);
-    }
+  const handleVideoProcessed = (data) => {
+    setVideoData(data);
+    setPitchVideoUrl(data.pitchUrl);
+    setPlayersVideoUrl(data.playersUrl);
+    setDrawings([]);
+    setHistoryIndex(-1);
+    setIsLoading(false);
   };
 
   const handlePlayPause = () => {
