@@ -82,6 +82,7 @@ const VideoUpload = ({ onVideoProcessed }) => {
             // Notify parent component
             onVideoProcessed({
               videoId,
+              backgroundUrl: `${API}/videos/stream/${videoId}/background`,
               pitchUrl: `${API}/videos/stream/${videoId}/pitch`,
               playersUrl: `${API}/videos/stream/${videoId}/players`
             });
