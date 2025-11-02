@@ -378,6 +378,8 @@
 .layer-video.players-layer {
   z-index: 3;
   pointer-events: none;
+  mix-blend-mode: normal;
+  isolation: isolate;
 }
 
 /* Playback Controls */
