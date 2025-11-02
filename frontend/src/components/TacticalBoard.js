@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, Play, Pause, SkipBack, SkipForward, Volume2, Circle as CircleIcon, ArrowRight, Undo2, Redo2, Trash2 } from 'lucide-react';
-import VideoCanvas from './VideoCanvas';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Circle as CircleIcon, ArrowRight, Undo2, Redo2, Trash2 } from 'lucide-react';
+import VideoUpload from './VideoUpload';
 import DrawingOverlay from './DrawingOverlay';
 import MaskingPanel from './MaskingPanel';
 import DrawingToolPanel from './DrawingToolPanel';
 import '../styles/TacticalBoard.css';
 
 const TacticalBoard = () => {
-  const [videoFile, setVideoFile] = useState(null);
-  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoData, setVideoData] = useState(null);
+  const [pitchVideoUrl, setPitchVideoUrl] = useState(null);
+  const [playersVideoUrl, setPlayersVideoUrl] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
