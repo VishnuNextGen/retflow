@@ -161,7 +161,7 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {
                 "status": "completed",
                 "progress": 100.0,
-                "pitch_video_path": pitch_path,
+                "pitch_video_path": pitch_webm_path,
                 "players_video_path": players_webm_path
             }}
         )
