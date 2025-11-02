@@ -153,7 +153,7 @@ const TacticalBoard = () => {
           </div>
           <h1 className="logo-text">TacticalVision</h1>
         </div>
-        {videoFile && (
+        {videoData && (
           <div className="session-info">
             <h2 className="session-title" data-testid="session-title">Analysis Session - LIV vs AVL</h2>
             <span className="ready-badge" data-testid="ready-badge">
