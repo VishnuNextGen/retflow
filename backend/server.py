@@ -335,12 +335,14 @@ async def stream_video(video_id: str, layer: str):
             raise HTTPException(status_code=400, detail="Video processing not completed")
         
         # Get the appropriate video path
-        if layer == 'pitch':
+        if layer == 'background':
+            video_path = video.get('background_video_path')
+        elif layer == 'pitch':
             video_path = video.get('pitch_video_path')
         elif layer == 'players':
             video_path = video.get('players_video_path')
         else:
-            raise HTTPException(status_code=400, detail="Invalid layer. Use 'pitch' or 'players'")
+            raise HTTPException(status_code=400, detail="Invalid layer. Use 'background', 'pitch', or 'players'")
         
         if not video_path or not os.path.exists(video_path):
             raise HTTPException(status_code=404, detail="Video file not found")
