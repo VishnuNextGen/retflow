@@ -151,7 +151,7 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
 
         await db.videos.update_one(
             {"id": video_id},
-            {"$set": {"progress": 75.0}}
+            {"$set": {"progress": 80.0}}
         )
 
         # Encode players layer (with alpha using VP9/WebM)
