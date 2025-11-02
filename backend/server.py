@@ -69,6 +69,7 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
         )
 
         # Output paths
+        background_path = str(PROCESSED_DIR / f"{video_id}_background.mp4")
         pitch_path = str(PROCESSED_DIR / f"{video_id}_pitch.mp4")
         players_path = str(PROCESSED_DIR / f"{video_id}_players.mp4")
         
