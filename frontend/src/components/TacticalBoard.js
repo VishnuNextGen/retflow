@@ -128,11 +128,9 @@ const TacticalBoard = () => {
   };
 
   const handleUploadNew = () => {
-    if (videoUrl) {
-      URL.revokeObjectURL(videoUrl);
-    }
-    setVideoFile(null);
-    setVideoUrl(null);
+    setVideoData(null);
+    setPitchVideoUrl(null);
+    setPlayersVideoUrl(null);
     setIsPlaying(false);
     setCurrentTime(0);
     setDuration(0);
