@@ -284,7 +284,13 @@ const TacticalBoard = () => {
                 </div>
               ) : (
                 <div className="canvas-container" ref={canvasContainerRef} data-testid="canvas-container">
-                  {/* Pitch Layer - Bottom */}
+                  {/* Background - Full original video for reference */}
+                  <video
+                    src={pitchVideoUrl}
+                    className="layer-video background-layer"
+                    data-testid="background-video"
+                  />
+                  {/* Pitch Layer - Bottom (green areas only) */}
                   <video
                     ref={pitchVideoRef}
                     src={pitchVideoUrl}
@@ -305,7 +311,7 @@ const TacticalBoard = () => {
                     onAddDrawing={addDrawing}
                     isEnabled={activeTool !== 'masking'}
                   />
-                  {/* Players Layer - Top */}
+                  {/* Players Layer - Top (non-green areas only) */}
                   <video
                     ref={playersVideoRef}
                     src={playersVideoUrl}
