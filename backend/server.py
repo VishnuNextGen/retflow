@@ -123,6 +123,20 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {"progress": 50.0}}
         )
 
+        # Create background video (full original video)
+        background_cmd = [
+            'ffmpeg', '-y', '-i', input_path,
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
+            '-pix_fmt', 'yuv420p',
+            background_path
+        ]
+        subprocess.run(background_cmd, check=True, capture_output=True)
+
+        await db.videos.update_one(
+            {"id": video_id},
+            {"$set": {"progress": 60.0}}
+        )
+
         # Encode pitch layer (with alpha using VP9/WebM)
         pitch_webm_path = pitch_path.replace('.mp4', '.webm')
         pitch_cmd = [
