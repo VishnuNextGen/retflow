@@ -126,6 +126,7 @@ const TacticalBoard = () => {
 
   const handleUploadNew = () => {
     setVideoData(null);
+    setBackgroundVideoUrl(null);
     setPitchVideoUrl(null);
     setPlayersVideoUrl(null);
     setIsPlaying(false);
