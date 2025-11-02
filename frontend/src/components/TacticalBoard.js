@@ -284,20 +284,16 @@ const TacticalBoard = () => {
                 </div>
               ) : (
                 <div className="canvas-container" ref={canvasContainerRef} data-testid="canvas-container">
+                  {/* Pitch Layer - Bottom */}
                   <video
-                    ref={videoRef}
-                    src={videoUrl}
+                    ref={pitchVideoRef}
+                    src={pitchVideoUrl}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
-                    style={{ display: 'none' }}
+                    className="layer-video pitch-layer"
+                    data-testid="pitch-video"
                   />
-                  <VideoCanvas
-                    videoRef={videoRef}
-                    isPlaying={isPlaying}
-                    sensitivity={sensitivity}
-                    showMask={showMask}
-                    layering={layering}
-                  />
+                  {/* Drawing Layer - Middle */}
                   <DrawingOverlay
                     canvasContainerRef={canvasContainerRef}
                     activeTool={activeTool}
@@ -308,6 +304,13 @@ const TacticalBoard = () => {
                     drawings={currentDrawings}
                     onAddDrawing={addDrawing}
                     isEnabled={activeTool !== 'masking'}
+                  />
+                  {/* Players Layer - Top */}
+                  <video
+                    ref={playersVideoRef}
+                    src={playersVideoUrl}
+                    className="layer-video players-layer"
+                    data-testid="players-video"
                   />
                 </div>
               )}
