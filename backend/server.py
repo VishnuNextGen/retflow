@@ -137,18 +137,17 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {"progress": 75.0}}
         )
 
-        # Encode players layer (with alpha for transparency)
+        # Encode players layer (with alpha using VP9/WebM)
+        players_webm_path = players_path.replace('.mp4', '.webm')
         players_cmd = [
             'ffmpeg', '-y', '-r', str(fps),
             '-i', str(players_frames_dir / 'frame_%06d.png'),
-            '-c:v', 'png',  # PNG codec preserves alpha
-            '-pix_fmt', 'rgba',  # RGBA for transparency
-            players_path.replace('.mp4', '.mov')  # Use MOV container for alpha
+            '-c:v', 'libvpx-vp9',  # VP9 supports alpha
+            '-pix_fmt', 'yuva420p',
+            '-auto-alt-ref', '0',  # Required for alpha
+            players_webm_path
         ]
         subprocess.run(players_cmd, check=True, capture_output=True)
-        
-        # Update path to MOV
-        players_path_mov = players_path.replace('.mp4', '.mov')
 
         # Clean up temp frames
         import shutil
