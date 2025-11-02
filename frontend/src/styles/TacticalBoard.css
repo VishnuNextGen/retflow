@@ -363,26 +363,11 @@
   background-color: #000;
 }
 
-.layer-video {
-  position: absolute;
-  top: 0;
-  left: 0;
+.main-video {
   width: 100%;
   height: 100%;
   object-fit: contain;
-}
-
-.layer-video.background-layer {
-  z-index: 0;
-}
-
-.layer-video.pitch-layer {
-  z-index: 1;
-}
-
-.layer-video.players-layer {
-  z-index: 3;
-  pointer-events: none;
+  display: block;
 }
 
 /* Playback Controls */
