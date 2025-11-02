@@ -36,8 +36,11 @@ const TacticalBoard = () => {
   const playersVideoRef = useRef(null);
   const canvasContainerRef = useRef(null);
 
+  const [backgroundVideoUrl, setBackgroundVideoUrl] = useState(null);
+
   const handleVideoProcessed = (data) => {
     setVideoData(data);
+    setBackgroundVideoUrl(data.backgroundUrl);
     setPitchVideoUrl(data.pitchUrl);
     setPlayersVideoUrl(data.playersUrl);
     setDrawings([]);
