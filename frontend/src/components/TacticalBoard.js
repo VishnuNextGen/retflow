@@ -33,7 +33,6 @@ const TacticalBoard = () => {
   const [historyIndex, setHistoryIndex] = useState(-1);
   
   const pitchVideoRef = useRef(null);
-  const playersVideoRef = useRef(null);
   const canvasContainerRef = useRef(null);
 
   const [backgroundVideoUrl, setBackgroundVideoUrl] = useState(null);
