@@ -69,16 +69,19 @@ const TacticalBoard = () => {
   const handleSeek = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
     const pos = (event.clientX - rect.left) / rect.width;
-    if (videoRef.current) {
-      videoRef.current.currentTime = pos * duration;
+    if (pitchVideoRef.current && playersVideoRef.current) {
+      const newTime = pos * duration;
+      pitchVideoRef.current.currentTime = newTime;
+      playersVideoRef.current.currentTime = newTime;
     }
   };
 
   const handleVolumeChange = (event) => {
     const newVolume = parseFloat(event.target.value);
     setVolume(newVolume);
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume;
+    if (pitchVideoRef.current && playersVideoRef.current) {
+      pitchVideoRef.current.volume = newVolume;
+      playersVideoRef.current.volume = newVolume;
     }
   };
 
