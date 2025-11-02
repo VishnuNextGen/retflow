@@ -287,22 +287,16 @@ const TacticalBoard = () => {
                 </div>
               ) : (
                 <div className="canvas-container" ref={canvasContainerRef} data-testid="canvas-container">
-                  {/* Background - Full original video (Layer 0 - bottom most) */}
-                  <video
-                    src={backgroundVideoUrl}
-                    className="layer-video background-layer"
-                    data-testid="background-video"
-                  />
-                  {/* Pitch Layer (Layer 1 - green areas only with transparency) */}
+                  {/* Main Video - User sees this as normal video */}
                   <video
                     ref={pitchVideoRef}
-                    src={pitchVideoUrl}
+                    src={backgroundVideoUrl}
                     onTimeUpdate={handleTimeUpdate}
                     onLoadedMetadata={handleLoadedMetadata}
-                    className="layer-video pitch-layer"
-                    data-testid="pitch-video"
+                    className="main-video"
+                    data-testid="main-video"
                   />
-                  {/* Drawing Layer (Layer 2 - middle - tactical annotations) */}
+                  {/* Drawing Layer - Appears on top */}
                   <DrawingOverlay
                     canvasContainerRef={canvasContainerRef}
                     activeTool={activeTool}
@@ -313,13 +307,6 @@ const TacticalBoard = () => {
                     drawings={currentDrawings}
                     onAddDrawing={addDrawing}
                     isEnabled={activeTool !== 'masking'}
-                  />
-                  {/* Players Layer (Layer 3 - top - non-green areas only) */}
-                  <video
-                    ref={playersVideoRef}
-                    src={playersVideoUrl}
-                    className="layer-video players-layer"
-                    data-testid="players-video"
                   />
                 </div>
               )}
