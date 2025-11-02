@@ -49,6 +49,7 @@ class VideoMetadata(BaseModel):
     upload_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     status: str = "uploaded"  # uploaded, processing, completed, error
     progress: float = 0.0
+    background_video_path: Optional[str] = None
     pitch_video_path: Optional[str] = None
     players_video_path: Optional[str] = None
     error_message: Optional[str] = None
