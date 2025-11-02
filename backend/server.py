@@ -327,7 +327,10 @@ async def stream_video(video_id: str, layer: str):
         if not video_path or not os.path.exists(video_path):
             raise HTTPException(status_code=404, detail="Video file not found")
         
-        return FileResponse(video_path, media_type="video/mp4")
+        # Determine media type based on file extension
+        media_type = "video/webm" if video_path.endswith('.webm') else "video/mp4"
+        
+        return FileResponse(video_path, media_type=media_type)
     
     except HTTPException:
         raise
