@@ -137,15 +137,18 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {"progress": 75.0}}
         )
 
-        # Encode players layer
+        # Encode players layer (with alpha for transparency)
         players_cmd = [
             'ffmpeg', '-y', '-r', str(fps),
             '-i', str(players_frames_dir / 'frame_%06d.png'),
-            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
-            '-pix_fmt', 'yuva420p',
-            players_path
+            '-c:v', 'png',  # PNG codec preserves alpha
+            '-pix_fmt', 'rgba',  # RGBA for transparency
+            players_path.replace('.mp4', '.mov')  # Use MOV container for alpha
         ]
         subprocess.run(players_cmd, check=True, capture_output=True)
+        
+        # Update path to MOV
+        players_path_mov = players_path.replace('.mp4', '.mov')
 
         # Clean up temp frames
         import shutil
