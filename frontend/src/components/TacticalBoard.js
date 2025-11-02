@@ -164,36 +164,10 @@ const TacticalBoard = () => {
         )}
       </header>
 
-      {!videoFile ? (
+      {!videoData ? (
         /* Upload Area */
         <div className="upload-container animate-fade-in" data-testid="upload-container">
-          <div className="upload-card">
-            <div className="upload-icon-wrapper">
-              <Upload className="upload-icon" size={64} />
-            </div>
-            <h2 className="upload-title">Upload Football Video</h2>
-            <p className="upload-description">
-              Drag and drop your match video here, or click to browse
-            </p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/*"
-              onChange={handleFileUpload}
-              className="file-input"
-              data-testid="file-input"
-            />
-            <button
-              className="upload-button"
-              onClick={() => fileInputRef.current?.click()}
-              data-testid="upload-button"
-            >
-              Select Video
-            </button>
-            <div className="upload-formats">
-              Supported formats: MP4, WebM, MOV, AVI
-            </div>
-          </div>
+          <VideoUpload onVideoProcessed={handleVideoProcessed} />
 
           {/* Help Section */}
           <div className="help-section" data-testid="help-section">
