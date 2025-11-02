@@ -122,12 +122,12 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {"progress": 50.0}}
         )
 
-        # Encode pitch layer
+        # Encode pitch layer (full video, no alpha)
         pitch_cmd = [
             'ffmpeg', '-y', '-r', str(fps),
             '-i', str(pitch_frames_dir / 'frame_%06d.png'),
             '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
-            '-pix_fmt', 'yuva420p',
+            '-pix_fmt', 'yuv420p',  # No alpha for pitch layer
             pitch_path
         ]
         subprocess.run(pitch_cmd, check=True, capture_output=True)
