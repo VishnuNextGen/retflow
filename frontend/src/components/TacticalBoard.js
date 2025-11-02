@@ -48,23 +48,20 @@ const TacticalBoard = () => {
   };
 
   const handlePlayPause = () => {
-    if (pitchVideoRef.current && playersVideoRef.current) {
+    if (pitchVideoRef.current) {
       if (isPlaying) {
         pitchVideoRef.current.pause();
-        playersVideoRef.current.pause();
       } else {
         pitchVideoRef.current.play();
-        playersVideoRef.current.play();
       }
       setIsPlaying(!isPlaying);
     }
   };
 
   const handleSkip = (seconds) => {
-    if (pitchVideoRef.current && playersVideoRef.current) {
+    if (pitchVideoRef.current) {
       const newTime = Math.max(0, Math.min(pitchVideoRef.current.currentTime + seconds, duration));
       pitchVideoRef.current.currentTime = newTime;
-      playersVideoRef.current.currentTime = newTime;
     }
   };
 
