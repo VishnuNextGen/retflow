@@ -122,13 +122,15 @@ async def process_video_layers(video_id: str, input_path: str, sensitivity: int 
             {"$set": {"progress": 50.0}}
         )
 
-        # Encode pitch layer (full video, no alpha)
+        # Encode pitch layer (with alpha using VP9/WebM)
+        pitch_webm_path = pitch_path.replace('.mp4', '.webm')
         pitch_cmd = [
             'ffmpeg', '-y', '-r', str(fps),
             '-i', str(pitch_frames_dir / 'frame_%06d.png'),
-            '-c:v', 'libx264', '-preset', 'medium', '-crf', '23',
-            '-pix_fmt', 'yuv420p',  # No alpha for pitch layer
-            pitch_path
+            '-c:v', 'libvpx-vp9',  # VP9 supports alpha
+            '-pix_fmt', 'yuva420p',
+            '-auto-alt-ref', '0',  # Required for alpha
+            pitch_webm_path
         ]
         subprocess.run(pitch_cmd, check=True, capture_output=True)
 
